@@ -1,23 +1,21 @@
 package main
 
 import (
-	"github.com/gorilla/mux"
 	"log"
-	"net/http"
 	"os"
 )
 
 func main() {
-	// initialize router
-	r := mux.NewRouter()
-
+	// logger
 	logger := log.New(os.Stdout, "api-gateway: ", 0)
 
-	var chatService *ChatService
-	chatService = NewChatServiceImpl(logger)
+	// chat service
+	chatService := NewChatServiceImpl(logger)
 
+	// create handler
 	handler := NewHandler(chatService, nil, logger)
 
+	// serve HTTP
 	handler.ServeHTTP()
 
 
