@@ -1,7 +1,6 @@
 package main
 
 import (
-	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
 	"log"
@@ -27,11 +26,11 @@ func (h *Handler) ServeHTTP() {
 	r := mux.NewRouter()
 
 	r.HandleFunc("/api/say-hello", h.sayHello()).Methods("GET")
-	r.HandleFunc("/api/login", h.login()).Methods("GET")
-	r.HandleFunc("/api/logout", h.logout()).Methods("GET")
-	r.HandleFunc("/api/chat", h.createChat()).Methods("POST")
+	r.HandleFunc("/api/login", h.login()).Methods("POST")
+	r.HandleFunc("/api/logout", h.logout()).Methods("POST")
+	r.HandleFunc("/api/chat", h.createChat()).Methods("PUT")
 	r.HandleFunc("/api/chat", h.deleteChat()).Methods("DELETE")
-	r.HandleFunc("/api/chat/{chatId}", h.enterChat()).Methods("POST")
+	r.HandleFunc("/api/chat/{chatId}", h.enterChat()).Methods("GET")
 	r.HandleFunc("/api/chat/{chatId}", h.leaveChat()).Methods("DELETE")
 	r.HandleFunc("/api/chat/{chatId}", h.sendMessage()).Methods("POST")
 
@@ -67,17 +66,17 @@ func (h *Handler) logout() func(http.ResponseWriter, *http.Request) {
 
 func (h *Handler) createChat() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		var userId string
 		result := http.StatusOK
-		err := json.NewDecoder(r.Body).Decode(&userId)
-		if err != nil {
-			h.logger.Println("Error: failed to parse request body.")
+		userId := r.Header.Get("userId")
+		if userId == "" {
+			h.logger.Println("Error: requires userId.")
 			result = http.StatusBadRequest
-		}
-		err = h.chatService.CreateChat(userId)
-		if err != nil {
-			h.logger.Println("Error: failed to create chat.")
-			result = http.StatusBadRequest
+		} else {
+			err := h.chatService.CreateChat(userId)
+			if err != nil {
+				h.logger.Println("Error: failed to create chat.")
+				result = http.StatusBadRequest
+			}
 		}
 		w.WriteHeader(result)
 	}
@@ -85,20 +84,24 @@ func (h *Handler) createChat() func(http.ResponseWriter, *http.Request) {
 
 func (h *Handler) deleteChat() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("DELETE CHAT")
 	}
 }
 
 func (h *Handler) sendMessage() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("SEND MESSAGE")
 	}
 }
 
 func (h *Handler) enterChat() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("ENTER CHAT")
 	}
 }
 
 func (h *Handler) leaveChat() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		fmt.Println("LEAVE CHAT")
 	}
 }
