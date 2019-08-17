@@ -1,0 +1,15 @@
+version: '3.7'
+
+services:
+    nginx:
+        restart: always
+        build: ./nginx/.
+        ports:
+            - '8000:80'
+    api-gateway:
+        build: ./api-gateway/.
+        volumes:
+            - .:/app
+        expose:
+            - '8080'
+
