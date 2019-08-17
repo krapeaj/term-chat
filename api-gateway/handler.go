@@ -5,6 +5,7 @@ import (
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
+	"strconv"
 	"time"
 )
 
@@ -22,24 +23,26 @@ func NewHandler(cs ChatService, as AuthService, l *log.Logger) *Handler {
 	}
 }
 
-func (h *Handler) ServeHTTP() {
+func (h *Handler) ServeHTTP(addr string, port int) {
 	r := mux.NewRouter()
 
-	r.HandleFunc("/api/say-hello", h.sayHello()).Methods("GET")
-	r.HandleFunc("/api/login", h.login()).Methods("POST")
-	r.HandleFunc("/api/logout", h.logout()).Methods("POST")
-	r.HandleFunc("/api/chat", h.createChat()).Methods("PUT")
-	r.HandleFunc("/api/chat", h.deleteChat()).Methods("DELETE")
-	r.HandleFunc("/api/chat/{chatId}", h.enterChat()).Methods("GET")
-	r.HandleFunc("/api/chat/{chatId}", h.leaveChat()).Methods("DELETE")
-	r.HandleFunc("/api/chat/{chatId}", h.sendMessage()).Methods("POST")
+	r.HandleFunc("/say-hello", h.sayHello()).Methods("GET")
+	r.HandleFunc("/login", h.login()).Methods("POST")
+	r.HandleFunc("/logout", h.logout()).Methods("POST")
+	r.HandleFunc("/chat", h.createChat()).Methods("PUT")
+	r.HandleFunc("/chat", h.deleteChat()).Methods("DELETE")
+	r.HandleFunc("/chat/{chatId}", h.enterChat()).Methods("GET")
+	r.HandleFunc("/chat/{chatId}", h.leaveChat()).Methods("DELETE")
+	r.HandleFunc("/chat/{chatId}", h.sendMessage()).Methods("POST")
 
+	address := addr + ":" + strconv.Itoa(port)
 	server := &http.Server{
 		Handler:      r,
-		Addr:         "127.0.0.1:8000",
+		Addr:         address,
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
+	h.logger.Printf("Started listening to port %d\n", port)
 	log.Fatal(server.ListenAndServe())
 }
 

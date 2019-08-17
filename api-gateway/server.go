@@ -16,7 +16,7 @@ func main() {
 	handler := NewHandler(chatService, nil, logger)
 
 	// serve HTTP
-	handler.ServeHTTP()
+	handler.ServeHTTP("0.0.0.0", 8080)
 
 
 	// TODO:
