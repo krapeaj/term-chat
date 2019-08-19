@@ -5,7 +5,6 @@ import (
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
-	"strconv"
 	"time"
 )
 
@@ -23,7 +22,7 @@ func NewHandler(cs ChatService, as AuthService, l *log.Logger) *Handler {
 	}
 }
 
-func (h *Handler) ServeHTTP(addr string, port int) {
+func (h *Handler) ServeHTTPS() {
 	r := mux.NewRouter()
 
 	r.HandleFunc("/say-hello", h.sayHello()).Methods("GET")
@@ -35,15 +34,29 @@ func (h *Handler) ServeHTTP(addr string, port int) {
 	r.HandleFunc("/chat/{chatId}", h.leaveChat()).Methods("DELETE")
 	r.HandleFunc("/chat/{chatId}", h.sendMessage()).Methods("POST")
 
-	address := addr + ":" + strconv.Itoa(port)
+
+	// TLS
+	//cfg := &tls.Config{
+	//	MinVersion:               tls.VersionTLS12,
+	//	CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
+	//	PreferServerCipherSuites: true,
+	//	CipherSuites: []uint16{
+	//		tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
+	//		tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
+	//		tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
+	//		tls.TLS_RSA_WITH_AES_256_CBC_SHA,
+	//		tls.TLS_AES_128_GCM_SHA256,
+	//	},
+	//}
+
 	server := &http.Server{
+		Addr:         ":433",
 		Handler:      r,
-		Addr:         address,
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
 	}
-	h.logger.Printf("Started listening to port %d\n", port)
-	log.Fatal(server.ListenAndServe())
+	h.logger.Println("Will start listening on port 433")
+	log.Fatal(server.ListenAndServeTLS( "/go/bin/app/certs/server.crt", "/go/bin/app/certs/server.key"))
 }
 
 func (h *Handler) sayHello() func(http.ResponseWriter, *http.Request) {
@@ -57,7 +70,14 @@ func (h *Handler) sayHello() func(http.ResponseWriter, *http.Request) {
 
 func (h *Handler) login() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("LOGIN")
+		userId, pw, ok := r.BasicAuth()
+		if !ok {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		fmt.Printf("User '%s' attempting to log in.", userId)
+		fmt.Println("password: " + pw)
+		w.WriteHeader(http.StatusOK)
 	}
 }
 
