@@ -1,21 +1,23 @@
 package main
 
 import (
-	"chat-server/cache"
+	"chat-server/service"
 	"github.com/gorilla/mux"
 	"log"
 	"net/http"
 )
 
 type Handler struct {
-	cacheService cache.CacheService
-	logger       *log.Logger
+	sessionService *service.SessionService
+	chatService    *service.ChatService
+	logger         *log.Logger
 }
 
-func NewHandler(cs cache.CacheService, l *log.Logger) *Handler {
+func NewHandler(ss *service.SessionService, cs *service.ChatService, l *log.Logger) *Handler {
 	return &Handler{
-		cacheService: cs,
-		logger: l,
+		sessionService: ss,
+		chatService:    cs,
+		logger:         l,
 	}
 }
 
