@@ -19,3 +19,10 @@ services:
         expose:
             - '433'
 
+    chat-server:
+        build:
+            dockerfile: Dockerfile
+            context: chat-server/
+        expose:
+            - '3000'
+

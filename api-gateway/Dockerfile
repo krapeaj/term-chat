@@ -2,7 +2,7 @@ FROM golang:1.12-alpine3.9 as builder
 
 RUN apk update && apk add --no-cache git
 
-WORKDIR $GOPATH/src/term-chat/api-gateway
+WORKDIR $GOPATH/src/api-gateway
 COPY . .
 
 RUN mkdir /go/bin/app
