@@ -34,21 +34,6 @@ func (h *Handler) ServeHTTPS() {
 	r.HandleFunc("/chat/{chatId}", h.leaveChat()).Methods("DELETE")
 	r.HandleFunc("/chat/{chatId}", h.sendMessage()).Methods("POST")
 
-
-	// TLS
-	//cfg := &tls.Config{
-	//	MinVersion:               tls.VersionTLS12,
-	//	CurvePreferences:         []tls.CurveID{tls.CurveP521, tls.CurveP384, tls.CurveP256},
-	//	PreferServerCipherSuites: true,
-	//	CipherSuites: []uint16{
-	//		tls.TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384,
-	//		tls.TLS_ECDHE_RSA_WITH_AES_256_CBC_SHA,
-	//		tls.TLS_RSA_WITH_AES_256_GCM_SHA384,
-	//		tls.TLS_RSA_WITH_AES_256_CBC_SHA,
-	//		tls.TLS_AES_128_GCM_SHA256,
-	//	},
-	//}
-
 	server := &http.Server{
 		Addr:         ":433",
 		Handler:      r,
@@ -70,13 +55,12 @@ func (h *Handler) sayHello() func(http.ResponseWriter, *http.Request) {
 
 func (h *Handler) login() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userId, pw, ok := r.BasicAuth()
+		userId, _, ok := r.BasicAuth()
 		if !ok {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		fmt.Printf("User '%s' attempting to log in.", userId)
-		fmt.Println("password: " + pw)
 		w.WriteHeader(http.StatusOK)
 	}
 }
