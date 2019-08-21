@@ -49,9 +49,9 @@ func (c *DefaultClient) Login(userId, password string) error {
 		return fmt.Errorf("log in rejected by server")
 	}
 	if resp.StatusCode == 200 {
-		sessionId := resp.Header.Get("session-id")
+		sessionId := resp.Header.Get("Set-Cookie")
 		if sessionId == "" {
-			return fmt.Errorf("empty session-id")
+			return fmt.Errorf("received no cookie")
 		}
 		c.sessionId = sessionId
 		fmt.Println("Log in successful!")
@@ -69,7 +69,7 @@ func (c *DefaultClient) Logout() error {
 	if err != nil {
 		return err
 	}
-	req.Header.Add("session-id", c.sessionId)
+	c.setCookie(req)
 	client := http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -89,16 +89,14 @@ func (c *DefaultClient) Logout() error {
 func (c *DefaultClient) Create(chatName, password string) error {
 	fmt.Printf("Creating chat room '%s'...\n", chatName)
 	body, err := json.Marshal(map[string]interface{}{
-		"data": map[string]interface{}{
-			"chatName": chatName,
-			"password": password,
-		},
+		"chatName": chatName,
+		"password": password,
 	})
 	if err != nil {
 		return err
 	}
 	req, err := http.NewRequest("PUT", c.serverAddr+ENDPOINT_CREATE, bytes.NewBuffer(body))
-	req.Header.Add("session-id", c.sessionId)
+	c.setCookie(req)
 	client := http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
@@ -134,5 +132,14 @@ func (c *DefaultClient) Leave() error {
 
 func (c *DefaultClient) SendMessage(message string) error {
 	fmt.Println("Message sent??")
+	return nil
+}
+
+func (c *DefaultClient) setCookie(req *http.Request) error {
+	cookie := &http.Cookie{
+		Name:  "sessionId",
+		Value: c.sessionId,
+	}
+	req.AddCookie(cookie)
 	return nil
 }

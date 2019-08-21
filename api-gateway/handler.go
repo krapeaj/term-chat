@@ -1,6 +1,8 @@
 package main
 
 import (
+	"api-gateway/auth"
+	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
 	"log"
@@ -10,11 +12,11 @@ import (
 
 type Handler struct {
 	chatService ChatService
-	authService AuthService
+	authService *auth.AuthService
 	logger      *log.Logger
 }
 
-func NewHandler(cs ChatService, as AuthService, l *log.Logger) *Handler {
+func NewHandler(cs ChatService, as *auth.AuthService, l *log.Logger) *Handler {
 	return &Handler{
 		chatService: cs,
 		authService: as,
@@ -55,12 +57,19 @@ func (h *Handler) sayHello() func(http.ResponseWriter, *http.Request) {
 
 func (h *Handler) login() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		userId, _, ok := r.BasicAuth()
+		userId, pw, ok := r.BasicAuth()
 		if !ok {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		fmt.Printf("User '%s' attempting to log in.", userId)
+
+		sessionId, err := h.authService.Login(userId, pw)
+		if err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		w.Header().Add("Set-Cookie", sessionId)
 		w.WriteHeader(http.StatusOK)
 	}
 }
@@ -73,19 +82,46 @@ func (h *Handler) logout() func(http.ResponseWriter, *http.Request) {
 
 func (h *Handler) createChat() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		result := http.StatusOK
-		userId := r.Header.Get("userId")
-		if userId == "" {
-			h.logger.Println("Error: requires userId.")
-			result = http.StatusBadRequest
-		} else {
-			err := h.chatService.CreateChat(userId)
-			if err != nil {
-				h.logger.Println("Error: failed to create chat.")
-				result = http.StatusBadRequest
-			}
+		sessionCookie, err := r.Cookie("sessionId")
+		if err != nil {
+			h.logger.Println("error: no sessionId")
+			w.WriteHeader(http.StatusUnauthorized)
+			return
 		}
-		w.WriteHeader(result)
+
+		// get user from session
+		sessionId := sessionCookie.Value
+		user, err := h.authService.GetUser(sessionId)
+		if err != nil {
+			h.logger.Printf("error: failed to get user with sessionId '%s'\n", sessionId)
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		var b []byte
+		r.Body.Read(b)
+		var data map[string]interface{}
+		json.Unmarshal(b, data)
+		chatName, ok := data["chatName"].(string)
+		if !ok {
+			h.logger.Println(fmt.Errorf("invalid request parameters"))
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		password, ok := data["password"].(string)
+		if !ok {
+			h.logger.Println(fmt.Errorf("invalid request parameters"))
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		// create chat
+		chatId, err := h.chatService.CreateChat(user.UserId, chatName, password)
+		if err != nil {
+			h.logger.Println("Error: failed to create chat.")
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		w.WriteHeader(http.StatusOK)
 	}
 }
 
