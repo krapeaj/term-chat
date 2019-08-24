@@ -6,8 +6,6 @@ WORKDIR $GOPATH/src/api-gateway
 COPY . .
 
 RUN mkdir /go/bin/app
-
-# Need a more elegant and secure way to provide cert/key
 RUN cp -a certs /go/bin/app/certs
 
 RUN go get -d -v

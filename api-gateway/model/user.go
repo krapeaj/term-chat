@@ -3,19 +3,17 @@ package model
 type User struct {
 	UserId      string
 	DateCreated string
-	Accessible  []string
-	password    string
+	Password    string
 }
 
-func NewUser(userId, password, dateCreated string, accessible []string) *User {
+func NewUser(userId, password, dateCreated string) *User {
 	return &User{
 		UserId:      userId,
-		password:    password,
+		Password:    password,
 		DateCreated: dateCreated,
-		Accessible:  accessible,
 	}
 }
 
 func (u *User) IsPasswordMatch(password string) bool {
-	return u.password == password
+	return u.Password == password
 }

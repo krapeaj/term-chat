@@ -2,6 +2,7 @@ package main
 
 import (
 	"api-gateway/auth"
+	"api-gateway/chat"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
@@ -11,12 +12,12 @@ import (
 )
 
 type Handler struct {
-	chatService ChatService
+	chatService chat.ChatService
 	authService *auth.AuthService
 	logger      *log.Logger
 }
 
-func NewHandler(cs ChatService, as *auth.AuthService, l *log.Logger) *Handler {
+func NewHandler(cs chat.ChatService, as *auth.AuthService, l *log.Logger) *Handler {
 	return &Handler{
 		chatService: cs,
 		authService: as,
@@ -37,7 +38,7 @@ func (h *Handler) ServeHTTPS() {
 	r.HandleFunc("/chat/{chatId}", h.sendMessage()).Methods("POST")
 
 	server := &http.Server{
-		Addr:         ":433",
+		Addr:         "0.0.0.0:433",
 		Handler:      r,
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
@@ -60,13 +61,15 @@ func (h *Handler) login() func(http.ResponseWriter, *http.Request) {
 		userId, pw, ok := r.BasicAuth()
 		if !ok {
 			w.WriteHeader(http.StatusBadRequest)
+			h.logger.Println(fmt.Errorf("no credentials provided"))
 			return
 		}
-		fmt.Printf("User '%s' attempting to log in.", userId)
+		h.logger.Printf("User '%s' attempting to log in.\n", userId)
 
 		sessionId, err := h.authService.Login(userId, pw)
 		if err != nil {
 			w.WriteHeader(http.StatusUnauthorized)
+			h.logger.Println(err)
 			return
 		}
 		w.Header().Add("Set-Cookie", sessionId)
@@ -121,6 +124,7 @@ func (h *Handler) createChat() func(http.ResponseWriter, *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
+		fmt.Println("CHATID: " + chatId)
 		w.WriteHeader(http.StatusOK)
 	}
 }

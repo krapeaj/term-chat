@@ -1,0 +1,15 @@
+#! /bin/sh
+
+env=DEV
+
+while getopts 'p' flag; do
+    case "${flag}" in
+    p) env="PROD"
+    esac
+done
+
+docker-compose build
+
+docker-compose rm -fvs; docker-compose run --rm start_dependencies
+
+docker-compose up api-gateway nginx

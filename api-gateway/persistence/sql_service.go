@@ -1,6 +1,7 @@
 package persistence
 
 import (
+	"api-gateway/model"
 	"github.com/jinzhu/gorm"
 	"log"
 )
@@ -17,16 +18,16 @@ func NewSQLService(db *gorm.DB, l *log.Logger) *SQLService {
 	}
 }
 
-func (ss *SQLService) GetUser(userId string) *User {
-	user := User{}
-	db := ss.db.First(&user, "userId=?", userId)
+func (ss *SQLService) GetUser(userId string) *model.User {
+	user := model.User{}
+	db := ss.db.First(&user, "user_id=?", userId)
 	if db.Error != nil {
 		return nil
 	}
 	return &user
 }
 
-func (ss *SQLService) SetUser(user *User) error {
+func (ss *SQLService) SetUser(user *model.User) error {
 	db := ss.db.Create(user)
 	if db.Error != nil {
 		return db.Error

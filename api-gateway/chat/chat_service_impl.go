@@ -35,11 +35,8 @@ func (s *ChatServiceImpl) CreateChat(userId, chatName, password string) (string,
 	chatId := rand.String()
 
 	// TODO: PUB/SUB?
-	key := chatSessionKeyPrefix + ":" + chatId
-	val := map[string]interface{}{
-		"chatId": chatId,
-	}
-	s.cacheService.HMSet(key, )
+
+	return chatId, nil
 }
 
 func (s *ChatServiceImpl) DeleteChat(userId, chatId string) error {

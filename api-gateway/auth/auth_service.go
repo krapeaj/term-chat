@@ -34,7 +34,7 @@ func (as *AuthService) Login(userId, password string) (string, error) {
 	if userId == "" || password == "" {
 		return "", fmt.Errorf("invalid userId or password")
 	}
-	// get user from persistence
+	// get user from DB
 	user := as.sqlService.GetUser(userId)
 	if !user.IsPasswordMatch(password) {
 		return "", fmt.Errorf("passwords do not match")
@@ -63,7 +63,7 @@ func (as *AuthService) Logout(userId, sessionId string) error {
 }
 
 func (as *AuthService) GetUser(sessionId string) (*model.User, error) {
-	userId := as.cacheService.GetUserIdFromSession(sessionId)
+	userId := as.cacheService.HGet(sessionId)
 	if userId == "" {
 		return nil, fmt.Errorf("user session '%s' does not exist", sessionId)
 	}
