@@ -51,6 +51,7 @@ func (as *AuthService) Login(userId, password string) (string, error) {
 	val := map[string]interface{}{
 		"userId": userId,
 	}
+	as.logger.Println("session key: " + key)
 	err = as.cacheService.HMSet(key, val);
 	if err != nil {
 		return "", err
@@ -58,8 +59,13 @@ func (as *AuthService) Login(userId, password string) (string, error) {
 	return sessionId, err
 }
 
-func (as *AuthService) Logout(userId, sessionId string) error {
-	return nil
+func (as *AuthService) Logout(sessionId string) (string, error) {
+	key := userSessionKeyPrefix + ":" + sessionId
+	userId, err := as.cacheService.Del(key)
+	if err != nil {
+		return "", err
+	}
+	return userId, nil
 }
 
 func (as *AuthService) GetUser(sessionId string) (*model.User, error) {

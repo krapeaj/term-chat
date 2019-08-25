@@ -1,6 +1,7 @@
 package redis
 
 import (
+	"fmt"
 	"github.com/go-redis/redis"
 	"log"
 	"time"
@@ -29,12 +30,28 @@ func (rs *RedisService) HGet(key string) string {
 func (rs *RedisService) HMSet(key string, val map[string]interface{}) error {
 	pipe := rs.client.Pipeline()
 	pipe.HMSet(key, val)
-	rs.client.Expire(key, 30*time.Minute)
-	err := pipe.Close()
+	pipe.Expire(key, 30*time.Minute)
+	_, err := pipe.Exec()
+	if err != nil {
+		return err
+	}
+	err = pipe.Close()
 	if err != nil {
 		return err
 	}
 	return nil
 }
 
-
+func (rs *RedisService) Del(key string) (string, error) {
+	strCmd := rs.client.HGet(key, "userId")
+	if strCmd.Err() != nil {
+		rs.logger.Println(fmt.Errorf("session key '%s' does not exist", key))
+		return "", strCmd.Err()
+	}
+	intCmd := rs.client.Del(key)
+	if intCmd.Err() != nil {
+		rs.logger.Println(fmt.Errorf("unexpected error while removing key '%s'", key))
+		return "", intCmd.Err()
+	}
+	return strCmd.Val(), nil
+}

@@ -1,16 +1,18 @@
 package main
 
 import (
+	"bufio"
 	"fmt"
 	"io/ioutil"
 	"net/http"
+	"os"
 	"strconv"
 	"client/utils"
 )
 
 func main() {
 
-	// get gateway server host, ip
+	// Get gateway server host, ip
 	data, err := ioutil.ReadFile("config.yml")
 	if err != nil {
 		panic(err)
@@ -29,27 +31,53 @@ func main() {
 		panic(fmt.Errorf("api-gateway port is not an int"))
 	}
 
-
-	// ask for session to gateway server
-	url := "http://" + host + ":" + strconv.Itoa(port)
-
-	resp, err := http.Get(url + "/api/say-hello")
-	if err != nil {
+	// Test connection
+	url := "https://" + host + ":" + strconv.Itoa(port)
+	resp, err := http.Get(url + "/api/test")
+	if err != nil || resp.StatusCode != http.StatusOK {
 		panic(fmt.Errorf("failed to connect to the gateway server"))
 	}
-	fmt.Println(resp.Header)
-	defer resp.Body.Close()
-	b, err := ioutil.ReadAll(resp.Body)
-	if err != nil {
-		fmt.Println("error reading body")
-	}
-	fmt.Println(string(b))
 
-	client := NewDefaultClient("https://" + url)
-	err = client.Login("krapeaj", "krapeaj")
-	if err != nil {
-		fmt.Println("failed to login")
+	// Log in
+	var userId, pw string
+	client := NewDefaultClient(url)
+	scanner := bufio.NewScanner(os.Stdin)
+	for {
+		for {
+			fmt.Print("User ID: ")
+			scanner.Scan()
+			userId = scanner.Text()
+			if userId != "" {
+				break
+			}
+			fmt.Println("User ID cannot be empty!")
+		}
+		for {
+			fmt.Print("User PW: ")
+			scanner.Scan()
+			pw = scanner.Text()
+			if pw != "" {
+				break
+			}
+			fmt.Println("Password cannot be empty!")
+		}
+
+		err = client.Login(userId, pw)
+		if err == nil {
+			break
+		}
+		fmt.Println("Failed to login! Try again.")
 	}
+
+	//quit := false
+	//for {
+	//
+	//
+	//	if quit {
+	//		break
+	//	}
+	//}
+	fmt.Println("Quit term-chat client")
 	//quit := false
 	/*
 	for {

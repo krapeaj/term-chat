@@ -137,7 +137,7 @@ func (c *DefaultClient) SendMessage(message string) error {
 
 func (c *DefaultClient) setCookie(req *http.Request) error {
 	cookie := &http.Cookie{
-		Name:  "sessionId",
+		Name:  "session-id",
 		Value: c.sessionId,
 	}
 	req.AddCookie(cookie)

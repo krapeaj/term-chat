@@ -3,7 +3,7 @@ package main
 type Client interface {
 	Login(userId, password string) error
 	Logout() error
-	Create() error
+	Create(chatName, password string) error
 	Delete(chatId string) error
 	Enter(chatId string) error
 	Leave() error

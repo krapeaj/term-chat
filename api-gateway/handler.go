@@ -28,7 +28,7 @@ func NewHandler(cs chat.ChatService, as *auth.AuthService, l *log.Logger) *Handl
 func (h *Handler) ServeHTTPS() {
 	r := mux.NewRouter()
 
-	r.HandleFunc("/say-hello", h.sayHello()).Methods("GET")
+	r.HandleFunc("/test", h.test()).Methods("GET")
 	r.HandleFunc("/login", h.login()).Methods("POST")
 	r.HandleFunc("/logout", h.logout()).Methods("POST")
 	r.HandleFunc("/chat", h.createChat()).Methods("PUT")
@@ -47,12 +47,13 @@ func (h *Handler) ServeHTTPS() {
 	log.Fatal(server.ListenAndServeTLS( "/go/bin/app/certs/server.crt", "/go/bin/app/certs/server.key"))
 }
 
-func (h *Handler) sayHello() func(http.ResponseWriter, *http.Request) {
+func (h *Handler) test() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		_, err := w.Write([]byte("Hello"))
 		if err != nil {
-			fmt.Println("Error!")
+			h.logger.Println(fmt.Errorf("failed to write in body"))
 		}
+		w.WriteHeader(http.StatusOK)
 	}
 }
 
@@ -79,13 +80,28 @@ func (h *Handler) login() func(http.ResponseWriter, *http.Request) {
 
 func (h *Handler) logout() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("LOGOUT")
+		cookie, err := r.Cookie("session-id")
+		if err != nil {
+			h.logger.Println(fmt.Errorf("no session-id"))
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		userId, err := h.authService.Logout(cookie.Value)
+		if err != nil {
+			h.logger.Println(err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+
+		h.logger.Printf("Logout successful for user '%s'\n", userId)
+		w.WriteHeader(http.StatusOK)
 	}
 }
 
 func (h *Handler) createChat() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		sessionCookie, err := r.Cookie("sessionId")
+		sessionCookie, err := r.Cookie("session-id")
 		if err != nil {
 			h.logger.Println("error: no sessionId")
 			w.WriteHeader(http.StatusUnauthorized)
@@ -94,7 +110,7 @@ func (h *Handler) createChat() func(http.ResponseWriter, *http.Request) {
 
 		// get user from session
 		sessionId := sessionCookie.Value
-		user, err := h.authService.GetUser(sessionId)
+		u, err := h.authService.GetUser(sessionId)
 		if err != nil {
 			h.logger.Printf("error: failed to get user with sessionId '%s'\n", sessionId)
 			w.WriteHeader(http.StatusUnauthorized)
@@ -118,14 +134,14 @@ func (h *Handler) createChat() func(http.ResponseWriter, *http.Request) {
 		}
 
 		// create chat
-		chatId, err := h.chatService.CreateChat(user.UserId, chatName, password)
+		chatId, err := h.chatService.CreateChat(u.UserId, chatName, password)
 		if err != nil {
 			h.logger.Println("Error: failed to create chat.")
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		fmt.Println("CHATID: " + chatId)
-		w.WriteHeader(http.StatusOK)
+		w.Header().Add("chat-id", chatId)
+		w.WriteHeader(http.StatusCreated)
 	}
 }
 
