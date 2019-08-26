@@ -4,7 +4,9 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
+	"github.com/gorilla/websocket"
 	"net/http"
+	"strconv"
 )
 
 type DefaultClient struct {
@@ -12,29 +14,34 @@ type DefaultClient struct {
 	userId     string
 	password   string
 	sessionId  string
-	chatId     string
+	chatName   string
 	state      State
+	ws         *websocket.Conn
 }
 
 const (
-	ENDPOINT_API_PREFIX = "/api"
-	ENDPOINT_LOGIN      = ENDPOINT_API_PREFIX + "/login"
-	ENDPOINT_LOGOUT     = ENDPOINT_API_PREFIX + "/logout"
-	ENDPOINT_CREATE     = ENDPOINT_API_PREFIX + "/chat"
-	ENDPOINT_DELETE     = ENDPOINT_API_PREFIX + "/chat/%s"
-	ENDPOINT_ENTER      = ENDPOINT_API_PREFIX + "/chat/%s"
-	ENDPOINT_LEAVE      = ENDPOINT_API_PREFIX + "/chat/%s/leave"
-	ENDPOINT_MESSAGE    = ENDPOINT_API_PREFIX + "/chat/%s"
+	HTTPS            = "https://"
+	WSS              = "wss://"
+	API_PREFIX       = "/api"
+	ENDPOINT_LOGIN   = API_PREFIX + "/login"
+	ENDPOINT_LOGOUT  = API_PREFIX + "/logout"
+	ENDPOINT_CREATE  = API_PREFIX + "/chat"
+	ENDPOINT_DELETE  = API_PREFIX + "/chat"
+	WEBSOCKET        = "/websocket"
+	ENDPOINT_LEAVE   = API_PREFIX + "/chat/leave"
+	ENDPOINT_MESSAGE = API_PREFIX + "/chat/message"
 )
 
-func NewDefaultClient(serverAddr string) *DefaultClient {
-	return &DefaultClient{serverAddr: serverAddr}
+func NewDefaultClient(host string, port int) *DefaultClient {
+	return &DefaultClient{
+		serverAddr: host + ":" + strconv.Itoa(port),
+	}
 }
 
 func (c *DefaultClient) Login(userId, password string) error {
 	fmt.Printf("Trying to log in as '%s'...\n", userId)
 
-	req, err := http.NewRequest("POST", c.serverAddr+ENDPOINT_LOGIN, nil)
+	req, err := http.NewRequest("POST", HTTPS+c.serverAddr+ENDPOINT_LOGIN, nil)
 	if err != nil {
 		return err
 	}
@@ -54,6 +61,7 @@ func (c *DefaultClient) Login(userId, password string) error {
 			return fmt.Errorf("received no cookie")
 		}
 		c.sessionId = sessionId
+		c.userId = userId
 		fmt.Println("Log in successful!")
 		return nil
 	}
@@ -65,13 +73,8 @@ func (c *DefaultClient) Logout() error {
 		return fmt.Errorf("user is not logged in")
 	}
 	fmt.Println("Logging out...")
-	req, err := http.NewRequest("POST", c.serverAddr+ENDPOINT_LOGOUT, nil)
-	if err != nil {
-		return err
-	}
-	c.setCookie(req)
-	client := http.Client{}
-	resp, err := client.Do(req)
+
+	resp, err := c.RequestWithSession("POST",HTTPS+c.serverAddr+ENDPOINT_LOGOUT, nil)
 	if err != nil {
 		return err
 	}
@@ -88,58 +91,102 @@ func (c *DefaultClient) Logout() error {
 
 func (c *DefaultClient) Create(chatName, password string) error {
 	fmt.Printf("Creating chat room '%s'...\n", chatName)
-	body, err := json.Marshal(map[string]interface{}{
-		"chatName": chatName,
-		"password": password,
-	})
-	if err != nil {
-		return err
-	}
-	req, err := http.NewRequest("PUT", c.serverAddr+ENDPOINT_CREATE, bytes.NewBuffer(body))
-	c.setCookie(req)
+	req, _ := http.NewRequest("PUT",HTTPS+c.serverAddr+ENDPOINT_CREATE, nil)
+	req.Header.Add("session-id", c.sessionId)
+	req.Header.Add("chat-name", chatName)
+	req.Header.Add("password", password)
+
 	client := http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {
 		return err
 	}
 
-	if resp.StatusCode == 201 {
-		chatId := resp.Header.Get("chat-id")
-		if chatId == "" {
-			return fmt.Errorf("did not get chat-id in response")
-		}
-		c.chatId = chatId
-		fmt.Printf("Successfully created chat room '%s'.\n", chatName)
-		return nil
+	if resp.StatusCode != http.StatusCreated {
+		return fmt.Errorf("failed to create chat room")
 	}
-	return fmt.Errorf("failed to create chat room")
-}
 
-func (c *DefaultClient) Delete(chatName string) error {
-	fmt.Printf("Deleting chat '%s'...\n", chatName)
+	fmt.Printf("Successfully created chat room '%s'.\n", chatName)
 	return nil
 }
 
-func (c *DefaultClient) Enter(chatName string) error {
-	fmt.Printf("Entering chat '%s'...\n", chatName)
+func (c *DefaultClient) Delete(chatName, chatPw string) error {
+	//fmt.Printf("Deleting chat '%s'...\n", chatName)
+	//body, err := json.Marshal(map[string]interface{}{
+	//	"chatName": chatName,
+	//	"password": chatPw,
+	//})
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//resp, err := c.RequestWithSession("DELETE", fmt.c.serverAddr+ENDPOINT_DELETE, body)
+	//if err != nil {
+	//	return err
+	//}
+	//
+	//if resp.StatusCode == http.StatusOK {
+	//	fmt.Printf("Successfully delete chat room '%s'\n", chatName)
+	//	return nil
+	//}
+	return fmt.Errorf("failed to delete chat room '%s'", chatName)
+}
+
+func (c *DefaultClient) Join(chatName, chatPw string) error {
+	fmt.Printf("Joining chat '%s'...\n", chatName)
+	header := http.Header{}
+	header.Add("session-id", c.sessionId)
+	header.Add("chat-name", chatName)
+	header.Add("password", chatPw)
+	conn, _, err := websocket.DefaultDialer.Dial(WSS+c.serverAddr+WEBSOCKET, header)
+	if err != nil {
+		fmt.Println(fmt.Errorf("failed to establish websocket connection"))
+		return fmt.Errorf("failed to join chat '%s'\n", chatName)
+	}
+	c.ws = conn
+	c.chatName = chatName
+	fmt.Printf("Successfully joined chat '%s'!\n", chatName)
 	return nil
 }
 
 func (c *DefaultClient) Leave() error {
-	fmt.Println("Leaving chat...")
-	return nil
+	if c.chatName == "" {
+		return fmt.Errorf("not in a chat room")
+	}
+	fmt.Printf("Leaving chat '%s'...\n", c.chatName)
+	body, err := json.Marshal(map[string]interface{}{
+		"chatName": c.chatName,
+	})
+	if err != nil {
+		return err
+	}
+
+	resp, err := c.RequestWithSession("DELETE", c.serverAddr+ENDPOINT_LEAVE, body)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode == http.StatusOK {
+		fmt.Printf("Left chat '%s'\n", c.chatName)
+		return nil
+	}
+	return fmt.Errorf("failed to leave chat")
 }
 
 func (c *DefaultClient) SendMessage(message string) error {
-	fmt.Println("Message sent??")
-	return nil
+
+	return fmt.Errorf("failed to send message")
 }
 
-func (c *DefaultClient) setCookie(req *http.Request) error {
-	cookie := &http.Cookie{
-		Name:  "session-id",
-		Value: c.sessionId,
+func (c *DefaultClient) RequestWithSession(method, addr string, body []byte) (*http.Response, error) {
+	req, err := http.NewRequest(method, addr, bytes.NewBuffer(body))
+	if err != nil {
+		return nil, err
 	}
-	req.AddCookie(cookie)
-	return nil
+	req.Header.Add("session-id", c.sessionId)
+	client := http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	return resp, nil
 }

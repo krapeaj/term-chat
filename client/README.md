@@ -18,6 +18,6 @@ The server's ip will be 'hard-coded' in the client and all communication will be
 - `/help` - displays instructions and list of commands
 - `/create <name> <password>` - create a chat room
 - `/delete <name> <password>` - delete a chat room
-- `/enter <name> <password>` - enter a chat room
+- `/join <name> <password>` - enter a chat room
 - `/leave` - leave a chat room
 - `/quit` or `ctrl-c` - quit from client

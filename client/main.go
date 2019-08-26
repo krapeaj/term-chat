@@ -40,7 +40,7 @@ func main() {
 
 	// Log in
 	var userId, pw string
-	client := NewDefaultClient(url)
+	client := NewDefaultClient(host, port)
 	scanner := bufio.NewScanner(os.Stdin)
 	for {
 		for {
@@ -69,22 +69,54 @@ func main() {
 		fmt.Println("Failed to login! Try again.")
 	}
 
-	//quit := false
-	//for {
-	//
-	//
-	//	if quit {
-	//		break
-	//	}
-	//}
-	fmt.Println("Quit term-chat client")
-	//quit := false
-	/*
+	quit := false
+	var cmd string
+	fmt.Println("Enter '/help' to see available commands.")
 	for {
+		fmt.Printf("(%s)>> ", client.userId)
+		scanner.Scan()
+		cmd = scanner.Text()
+		switch cmd {
+		case "/create":
+			fmt.Print("Enter chat name: ")
+			scanner.Scan()
+			chatName := scanner.Text()
+			fmt.Print("Enter chat password: ")
+			scanner.Scan()
+			chatPw := scanner.Text()
+			if err := client.Create(chatName, chatPw); err != nil {
+				fmt.Println(fmt.Errorf("failed to create chat"))
+			}
+		case "/delete":
+			fmt.Print("Enter chat name to delete: ")
+			scanner.Scan()
+			chatName := scanner.Text()
+			fmt.Print("Enter chat password: ")
+			scanner.Scan()
+			chatPw := scanner.Text()
+			client.Delete(chatName, chatPw)
+			fmt.Println("Delete!")
+		case "/join":
+			fmt.Println("Join!")
+			fmt.Print("Enter chat name to join: ")
+			scanner.Scan()
+			chatName := scanner.Text()
+			fmt.Print("Enter chat password: ")
+			scanner.Scan()
+			chatPw := scanner.Text()
+			if err := client.Join(chatName, chatPw); err != nil {
+				fmt.Println(err)
+			}
+		case "/leave":
+			fmt.Println("Leave!")
+		case "/quit":
+			fmt.Println("Quit!")
+			quit = true
+		}
 
 		if quit {
 			break
 		}
 	}
-	*/
+	fmt.Println("Quit term-chat client")
 }

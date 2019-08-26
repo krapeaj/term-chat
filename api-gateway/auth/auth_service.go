@@ -69,7 +69,8 @@ func (as *AuthService) Logout(sessionId string) (string, error) {
 }
 
 func (as *AuthService) GetUser(sessionId string) (*model.User, error) {
-	userId := as.cacheService.HGet(sessionId)
+	key := userSessionKeyPrefix + ":" + sessionId
+	userId := as.cacheService.HGet(key)
 	if userId == "" {
 		return nil, fmt.Errorf("user session '%s' does not exist", sessionId)
 	}
