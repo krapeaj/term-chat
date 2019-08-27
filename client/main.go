@@ -70,9 +70,26 @@ func main() {
 	}
 
 	quit := false
+	inChat := false
+
 	var cmd string
 	fmt.Println("Enter '/help' to see available commands.")
 	for {
+		for inChat {
+			var c chan string
+			go client.ListenAndDisplay(c)
+			for {
+				fmt.Printf("(%s)>> ", client.chatName)
+				scanner.Scan()
+				m := scanner.Text()
+				if m == "/leave" {
+					inChat = false
+					close(c)
+					break
+				}
+				client.SendMessage(m)
+			}
+		}
 		fmt.Printf("(%s)>> ", client.userId)
 		scanner.Scan()
 		cmd = scanner.Text()
@@ -107,8 +124,7 @@ func main() {
 			if err := client.Join(chatName, chatPw); err != nil {
 				fmt.Println(err)
 			}
-		case "/leave":
-			fmt.Println("Leave!")
+			inChat = true
 		case "/quit":
 			fmt.Println("Quit!")
 			quit = true

@@ -34,8 +34,6 @@ func (h *Handler) ServeHTTPS() {
 	r.HandleFunc("/chat", h.createChat()).Methods("PUT")
 	r.HandleFunc("/chat", h.deleteChat()).Methods("DELETE")
 	r.HandleFunc("/websocket", h.joinChat()).Methods("GET")
-	r.HandleFunc("/chat/leave", h.leaveChat()).Methods("DELETE")
-	r.HandleFunc("/chat/message", h.sendMessage()).Methods("POST")
 
 	server := &http.Server{
 		Addr:         "0.0.0.0:433",
@@ -124,7 +122,7 @@ func (h *Handler) createChat() func(http.ResponseWriter, *http.Request) {
 			return
 		}
 
-		// create chat
+		// create chat - spins up go routine to listen for messages to broadcast
 		err = h.chatService.CreateChat(chatName, password)
 		if err != nil {
 			h.logger.Println(fmt.Errorf("failed to create chat"))
@@ -139,12 +137,6 @@ func (h *Handler) createChat() func(http.ResponseWriter, *http.Request) {
 func (h *Handler) deleteChat() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		fmt.Println("DELETE CHAT")
-	}
-}
-
-func (h *Handler) sendMessage() func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("SEND MESSAGE")
 	}
 }
 
@@ -165,22 +157,10 @@ func (h *Handler) joinChat() func(http.ResponseWriter, *http.Request) {
 		// get chat info
 		chatName := r.Header.Get("chat-name")
 		password := r.Header.Get("password")
-		if chatName == "" || password == "" {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
 
 		// create client
 		client := chat.NewClient(u.UserId, h.logger)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		err = h.chatService.JoinChat(chatName, password, client)
-		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
+		// upgrade to ws
 		upgrader := websocket.Upgrader{}
 		conn, err := upgrader.Upgrade(w, r, nil)
 		err = client.AddWebSocketConn(conn)
@@ -188,11 +168,11 @@ func (h *Handler) joinChat() func(http.ResponseWriter, *http.Request) {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-	}
-}
-
-func (h *Handler) leaveChat() func(http.ResponseWriter, *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-		fmt.Println("LEAVE CHAT")
+		// spins up a go routine for listening to client
+		err = h.chatService.JoinChat(chatName, password, client)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
 	}
 }

@@ -29,8 +29,10 @@ func (s *ChatServiceImpl) CreateChat(chatName, password string) error {
 	if chatName == "" || password == "" {
 		return fmt.Errorf("invalid arguemnts '%s', '%s'\n", chatName, password)
 	}
-	chatRoom := NewChatRoom(chatName, []*Client{}, s.logger)
+	chatRoom := NewChatRoom(chatName, password, []*Client{}, make(chan []byte), s.logger)
 	s.chatRooms[chatName] = chatRoom
+	// listens to any messages from clients to broadcast
+	go chatRoom.Listen()
 	return nil
 }
 
@@ -39,7 +41,7 @@ func (s *ChatServiceImpl) DeleteChat(userId, chatId string) error {
 	return nil
 }
 
-func (s *ChatServiceImpl) JoinChat(chatName, password  string, client *Client) error {
+func (s *ChatServiceImpl) JoinChat(chatName, password string, client *Client) error {
 	if chatName == "" || password == "" {
 		return fmt.Errorf("invalid arguemnts '%s', '%s'\n", chatName, password)
 	}
@@ -47,24 +49,12 @@ func (s *ChatServiceImpl) JoinChat(chatName, password  string, client *Client) e
 	if !ok {
 		return fmt.Errorf("chat name '%s' does not exist", chatName)
 	}
+	if chatRoom.password != password {
+		return fmt.Errorf("wrong password")
+	}
 	chatRoom.AddClient(client)
-	return nil
-}
 
-func (s *ChatServiceImpl) LeaveChat(chatId, userId string) error {
-	s.logger.Printf("User '%s' leaving chat '%s'\n", userId, chatId)
-	return nil
-}
-
-func (s *ChatServiceImpl) SendMessage(userId, chatName, message string) error {
-	if userId == "" || chatName == "" {
-		return fmt.Errorf("invalid arguemnts '%s', '%s'\n", userId, chatName)
-	}
-	s.logger.Printf("User '%s' sending message in chat '%s'\n", userId, chatName)
-	chatRoom, ok := s.chatRooms[chatName]
-	if !ok {
-		return fmt.Errorf("no chat room '%s'", chatName)
-	}
-	chatRoom.BroadcastMessage(message)
+	go client.Listen(chatRoom.ch)
+	chatRoom.ch <- []byte(client.UserId + " has joined!\n")
 	return nil
 }

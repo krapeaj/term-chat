@@ -74,7 +74,7 @@ func (c *DefaultClient) Logout() error {
 	}
 	fmt.Println("Logging out...")
 
-	resp, err := c.RequestWithSession("POST",HTTPS+c.serverAddr+ENDPOINT_LOGOUT, nil)
+	resp, err := c.RequestWithSession("POST", HTTPS+c.serverAddr+ENDPOINT_LOGOUT, nil)
 	if err != nil {
 		return err
 	}
@@ -91,7 +91,7 @@ func (c *DefaultClient) Logout() error {
 
 func (c *DefaultClient) Create(chatName, password string) error {
 	fmt.Printf("Creating chat room '%s'...\n", chatName)
-	req, _ := http.NewRequest("PUT",HTTPS+c.serverAddr+ENDPOINT_CREATE, nil)
+	req, _ := http.NewRequest("PUT", HTTPS+c.serverAddr+ENDPOINT_CREATE, nil)
 	req.Header.Add("session-id", c.sessionId)
 	req.Header.Add("chat-name", chatName)
 	req.Header.Add("password", password)
@@ -172,9 +172,13 @@ func (c *DefaultClient) Leave() error {
 	return fmt.Errorf("failed to leave chat")
 }
 
-func (c *DefaultClient) SendMessage(message string) error {
-
-	return fmt.Errorf("failed to send message")
+func (c *DefaultClient) SendMessage(message string) {
+	err := c.ws.WriteJSON(map[string]string{
+		"message": message,
+	})
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 func (c *DefaultClient) RequestWithSession(method, addr string, body []byte) (*http.Response, error) {
@@ -189,4 +193,14 @@ func (c *DefaultClient) RequestWithSession(method, addr string, body []byte) (*h
 		return nil, err
 	}
 	return resp, nil
+}
+
+func (c *DefaultClient) ListenAndDisplay(ch chan string) {
+	for {
+		msg, open := <-ch
+		if !open {
+			break
+		}
+		fmt.Println(msg)
+	}
 }
