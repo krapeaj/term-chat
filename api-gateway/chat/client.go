@@ -6,11 +6,6 @@ import (
 	"log"
 )
 
-const (
-	MESSAGE = iota
-	EXIT_CHAT
-)
-
 type Client struct {
 	UserId string
 	logger *log.Logger
@@ -34,15 +29,19 @@ func (c *Client) AddWebSocketConn(conn *websocket.Conn) error {
 
 func (c *Client) Listen(ch chan<- []byte) {
 	for {
-		t, m, _ := c.ws.ReadMessage()
-		if t == EXIT_CHAT {
+		t, m, err := c.ws.ReadMessage()
+		if err != nil {
+			c.logger.Println(fmt.Errorf("failed to read websocket message"))
+			break
+		}
+		if t == websocket.CloseMessage {
 			break
 		}
 		message := c.UserId + ": " + string(m)
 		ch <- []byte(message)
 	}
 	if err := c.ws.Close(); err != nil {
-		fmt.Println(fmt.Errorf("failed to close websocket connection"))
+		c.logger.Println(fmt.Errorf("failed to close websocket connection"))
 	}
 }
 
@@ -51,8 +50,10 @@ func (c *Client) SendMessage(message []byte) {
 		c.logger.Println(fmt.Errorf("web socket connection does not exist"))
 		return
 	}
-	err := c.ws.WriteMessage(MESSAGE, message)
+	err := c.ws.WriteMessage(websocket.TextMessage, message)
 	if err != nil {
-		c.logger.Println(fmt.Errorf("failed to broadcast message to user '%s'", c.UserId))
+		c.logger.Println(fmt.Errorf("failed to send message to user '%s'", c.UserId))
+		c.logger.Println(err)
+		c.ws.Close()
 	}
 }

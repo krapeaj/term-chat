@@ -55,6 +55,6 @@ func (s *ChatServiceImpl) JoinChat(chatName, password string, client *Client) er
 	chatRoom.AddClient(client)
 
 	go client.Listen(chatRoom.ch)
-	chatRoom.ch <- []byte(client.UserId + " has joined!\n")
+	chatRoom.ch <- []byte(client.UserId + " has joined!")
 	return nil
 }

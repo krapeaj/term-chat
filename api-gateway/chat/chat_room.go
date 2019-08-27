@@ -38,8 +38,11 @@ func (cr *ChatRoom) GetClient(userId string) *Client {
 func (cr *ChatRoom) Listen() {
 	// TODO: idle timeout
 	for {
-		m := <-cr.ch
-		cr.BroadcastMessage(m)
+		msg, open := <-cr.ch
+		if !open {
+			break
+		}
+		cr.BroadcastMessage(msg)
 	}
 }
 

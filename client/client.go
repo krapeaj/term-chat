@@ -6,13 +6,6 @@ type Client interface {
 	Create(chatName, password string) error
 	Delete(chatName, password string) error
 	Join(chatName, password string) error
-	Leave() error
-	SendMessage(message string)
+	Leave()
+	SendMessage(message string) error
 }
-
-type State int
-const (
-	NOT_LOGGED_IN State = iota
-	LOBBY
-	IN_CHAT
-)

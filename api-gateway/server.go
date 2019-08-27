@@ -23,6 +23,7 @@ func main() {
 	DB_NAME := os.Getenv("DB_NAME")
 	DB_USER := os.Getenv("DB_USER")
 	DB_PASSWORD := os.Getenv("DB_PASSWORD")
+	REDIS_HOST := os.Getenv("REDIS_HOST")
 	REDIS_PORT := os.Getenv("REDIS_PORT")
 	REDIS_PASSWORD := ""
 	REDIS_DB := 0
@@ -35,7 +36,7 @@ func main() {
 	defer db.Close()
 
 	// Logger
-	logger := log.New(os.Stdout, "api-gateway: ", 0)
+	logger := log.New(os.Stdout, "", 0)
 
 	// SQL service
 	sqlService := persistence.NewSQLService(db, logger)
@@ -45,7 +46,7 @@ func main() {
 
 	// Redis client
 	rc := r.NewClient(&r.Options{
-		Addr:     "redis:" + REDIS_PORT,
+		Addr:     REDIS_HOST+":" + REDIS_PORT,
 		Password: REDIS_PASSWORD,
 		DB:       REDIS_DB,
 	})

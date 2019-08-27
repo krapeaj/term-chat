@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
 	"net/http"
@@ -15,7 +14,6 @@ type DefaultClient struct {
 	password   string
 	sessionId  string
 	chatName   string
-	state      State
 	ws         *websocket.Conn
 }
 
@@ -149,36 +147,18 @@ func (c *DefaultClient) Join(chatName, chatPw string) error {
 	return nil
 }
 
-func (c *DefaultClient) Leave() error {
-	if c.chatName == "" {
-		return fmt.Errorf("not in a chat room")
-	}
-	fmt.Printf("Leaving chat '%s'...\n", c.chatName)
-	body, err := json.Marshal(map[string]interface{}{
-		"chatName": c.chatName,
-	})
-	if err != nil {
-		return err
-	}
-
-	resp, err := c.RequestWithSession("DELETE", c.serverAddr+ENDPOINT_LEAVE, body)
-	if err != nil {
-		return err
-	}
-	if resp.StatusCode == http.StatusOK {
-		fmt.Printf("Left chat '%s'\n", c.chatName)
-		return nil
-	}
-	return fmt.Errorf("failed to leave chat")
+func (c *DefaultClient) Leave() {
+	c.ws.WriteMessage(websocket.CloseMessage, []byte(c.userId + " leaving chat"))
+	c.ws.Close()
+	c.chatName = ""
 }
 
-func (c *DefaultClient) SendMessage(message string) {
-	err := c.ws.WriteJSON(map[string]string{
-		"message": message,
-	})
-	if err != nil {
-		fmt.Println(err)
+func (c *DefaultClient) SendMessage(message string) error {
+	if err := c.ws.WriteMessage(websocket.TextMessage, []byte(message)); err != nil {
+		fmt.Println(fmt.Errorf("failed to send message to server"))
+		return err
 	}
+	return nil
 }
 
 func (c *DefaultClient) RequestWithSession(method, addr string, body []byte) (*http.Response, error) {
@@ -195,12 +175,14 @@ func (c *DefaultClient) RequestWithSession(method, addr string, body []byte) (*h
 	return resp, nil
 }
 
-func (c *DefaultClient) ListenAndDisplay(ch chan string) {
+func (c *DefaultClient) ListenAndDisplay() {
 	for {
-		msg, open := <-ch
-		if !open {
+		_, msg, err := c.ws.ReadMessage()
+		if err != nil {
+			fmt.Println(err)
 			break
 		}
-		fmt.Println(msg)
+		fmt.Println(string(msg))
 	}
+	c.ws.Close()
 }

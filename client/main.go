@@ -74,22 +74,30 @@ func main() {
 
 	var cmd string
 	fmt.Println("Enter '/help' to see available commands.")
+
+	// Execution loop
 	for {
-		for inChat {
-			var c chan string
-			go client.ListenAndDisplay(c)
+		// In chat
+		if inChat {
+			fmt.Printf("---------- In Chat: %s ----------\n", client.chatName)
+			go client.ListenAndDisplay()
 			for {
-				fmt.Printf("(%s)>> ", client.chatName)
 				scanner.Scan()
 				m := scanner.Text()
 				if m == "/leave" {
 					inChat = false
-					close(c)
 					break
 				}
-				client.SendMessage(m)
+				if err := client.SendMessage(m); err != nil {
+					inChat = false
+					break
+				}
 			}
+			fmt.Printf("---------- Leave Chat: %s ----------\n", client.chatName)
+			client.Leave()
 		}
+
+		// Main
 		fmt.Printf("(%s)>> ", client.userId)
 		scanner.Scan()
 		cmd = scanner.Text()
