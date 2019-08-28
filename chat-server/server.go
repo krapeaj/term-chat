@@ -1,27 +1,68 @@
 package main
 
 import (
+	"chat-server/auth"
+	"chat-server/auth/jwt"
 	"chat-server/cache/redis"
-	"chat-server/service"
+	"chat-server/chat"
+	"chat-server/persistence"
+	_ "database/sql"
+	r "github.com/go-redis/redis"
+	_ "github.com/go-sql-driver/mysql"
+	"github.com/jinzhu/gorm"
+	_ "github.com/jinzhu/gorm/dialects/mysql"
 	"log"
 	"os"
-
-	r "github.com/go-redis/redis"
 )
 
 func main() {
-	logger := log.New(os.Stdout, "chat-server: ", 0)
+	// Get environment variables
+	//DEPLOYMENT_TYPE := os.Getenv("DEPLOYMENT_TYPE")
+	DB_HOST := os.Getenv("DB_HOST")
+	DB_PORT := os.Getenv("DB_PORT")
+	DB_NAME := os.Getenv("DB_NAME")
+	DB_USER := os.Getenv("DB_USER")
+	DB_PASSWORD := os.Getenv("DB_PASSWORD")
+	REDIS_HOST := os.Getenv("REDIS_HOST")
+	REDIS_PORT := os.Getenv("REDIS_PORT")
+	REDIS_PASSWORD := os.Getenv("REDIS_PASSWORD")
+	REDIS_DB := 0
 
-	client := r.NewClient(&r.Options{
-		Addr:     "0.0.0.0:7379",
-		Password: "",
-		DB:       0,
+	// DB - open connection and perform migrations
+	db, err := gorm.Open("mysql", DB_USER+":"+DB_PASSWORD+"@tcp("+DB_HOST+":"+DB_PORT+")/"+DB_NAME+"?charset=utf8")
+	if err != nil {
+		panic(err)
+	}
+	defer db.Close()
+
+	// Logger
+	logger := log.New(os.Stdout, "", 0)
+
+	// SQL service
+	sqlService := persistence.NewSQLService(db, logger)
+
+	// JWT service
+	jwtService := jwt.NewJwtService(logger)
+
+	// Redis client
+	rc := r.NewClient(&r.Options{
+		Addr:     REDIS_HOST+":" + REDIS_PORT,
+		Password: REDIS_PASSWORD,
+		DB:       REDIS_DB,
 	})
-	redisService := redis.NewRedisService(client, logger)
 
-	sessionService := service.NewSessionService(redisService, logger)
-	chatService := service.NewChatService(redisService, logger)
+	// CacheService
+	cacheService := redis.NewRedisService(rc, logger)
 
-	handler := NewHandler(sessionService, chatService, logger)
-	handler.ServeHTTP(":3000")
+	// AuthService
+	authService := auth.NewAuthService(cacheService, sqlService, jwtService, logger)
+
+	// ChatService
+	chatService := chat.NewChatServiceImpl(cacheService, logger)
+
+	// Create Handler
+	handler := NewHandler(chatService, authService, logger)
+
+	// Serve HTTP
+	handler.ServeHTTPS("/go/bin/app/certs/server.crt", "/go/bin/app/certs/server.key")
 }

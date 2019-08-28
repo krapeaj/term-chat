@@ -1,4 +1,4 @@
 
-api-gateway:
+chat-server:
   host: localhost
   port: 8000

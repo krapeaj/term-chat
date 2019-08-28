@@ -1,7 +1,7 @@
 package cache
 
 type CacheService interface {
-	Publish(chatId, userId string) error
-	Subscribe(chatId, userId string) error
-	Unsubscribe(chatId, userId string) error
+	HGet(key string) string
+	HMSet(key string, val map[string]interface{}) error
+	Del(key string) (string, error)
 }

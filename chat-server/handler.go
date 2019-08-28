@@ -1,90 +1,205 @@
 package main
 
 import (
+	"chat-server/auth"
+	"chat-server/chat"
 	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
+	"github.com/gorilla/websocket"
 	"log"
 	"net/http"
+	"time"
 )
 
 type Handler struct {
-	chatService *ChatService
+	chatService chat.ChatService
+	authService *auth.AuthService
 	logger      *log.Logger
 }
 
-func NewHandler(cs *ChatService, l *log.Logger) *Handler {
+func NewHandler(cs chat.ChatService, as *auth.AuthService, l *log.Logger) *Handler {
 	return &Handler{
 		chatService: cs,
+		authService: as,
 		logger:      l,
 	}
 }
 
-func (h *Handler) ServeHTTP(addr string) {
+func (h *Handler) ServeHTTPS(crt, key string) {
 	r := mux.NewRouter()
-
+	r.HandleFunc("/test", h.test()).Methods("GET")
+	r.HandleFunc("/login", h.login()).Methods("POST")
+	r.HandleFunc("/logout", h.logout()).Methods("POST")
 	r.HandleFunc("/chat", h.createChat()).Methods("PUT")
-	r.HandleFunc("/chat/{chatId}", h.deleteChat()).Methods("DELETE")
-	r.HandleFunc("/chat/{chatId}", h.enterChat()).Methods("GET")
+	r.HandleFunc("/chat", h.deleteChat()).Methods("DELETE")
+	r.HandleFunc("/websocket", h.joinChat()).Methods("GET")
 
-	h.logger.Println("Starting server at " + addr + " ...")
-	h.logger.Fatal(http.ListenAndServe(addr, r))
+	server := &http.Server{
+		Addr:         "0.0.0.0:433",
+		Handler:      r,
+		WriteTimeout: 15 * time.Second,
+		ReadTimeout:  15 * time.Second,
+	}
+	h.logger.Println("Will start listening on port 433")
+	defer server.Close()
+	log.Fatal(server.ListenAndServeTLS(crt, key))
 }
 
-func (h *Handler) createChat() func(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) test() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
-		ct := r.Header.Get("Content-Type")
-		if ct != "application/json" {
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
+func (h *Handler) login() func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userId, pw, ok := r.BasicAuth()
+		if !ok {
+			w.WriteHeader(http.StatusBadRequest)
+			h.logger.Println(fmt.Errorf("no credentials provided"))
+			return
+		}
+		h.logger.Printf("User '%s' attempting to log in.\n", userId)
+
+		sessionId, err := h.authService.Login(userId, pw)
+		if err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			h.logger.Println(err)
+			return
+		}
+		w.Header().Add("Set-Cookie", sessionId)
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
+func (h *Handler) logout() func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		sessionId := r.Header.Get("session-id")
+		if sessionId == "" {
+			h.logger.Println(fmt.Errorf("no session-id"))
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		userId, err := h.authService.Logout(sessionId)
+		if err != nil {
+			h.logger.Println(err)
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		h.logger.Printf("Logout successful for user '%s'\n", userId)
+		w.WriteHeader(http.StatusOK)
+	}
+}
+
+func (h *Handler) createChat() func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		sessionId := r.Header.Get("session-id")
+		if sessionId == "" {
+			h.logger.Println("error: no sessionId")
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		// check user session
+		_, err := h.authService.GetUser(sessionId)
+		if err != nil {
+			h.logger.Printf("error: failed to get user with sessionId '%s'\n", sessionId)
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		// get chat info
+		chatName := r.Header.Get("chat-name")
+		password := r.Header.Get("password")
+		if chatName == "" || password == "" {
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 
-		// parse body
-		var b []byte
-		_, err := r.Body.Read(b)
+		// create chat - spins up go routine to listen for messages to broadcast
+		err = h.chatService.CreateChat(chatName, password)
 		if err != nil {
-			w.WriteHeader(http.StatusInternalServerError)
+			h.logger.Println(fmt.Errorf("failed to create chat"))
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		var body map[string]interface{}
+		h.logger.Printf("Successfully created chat '%s'\n", chatName)
+		w.WriteHeader(http.StatusCreated)
+	}
+}
+
+func (h *Handler) deleteChat() func(http.ResponseWriter, *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		sessionId := r.Header.Get("session-id")
+		if sessionId == "" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		_, err := h.authService.GetUser(sessionId)
+		if err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+
+		var b []byte
+		var body map[string]string
+		r.Body.Read(b)
 		err = json.Unmarshal(b, body)
 		if err != nil {
-			h.logger.Println(err)
-			w.WriteHeader(http.StatusInternalServerError)
-			return
-		}
-		userId, ok := body["userId"].(string)
-		if !ok {
-			h.logger.Println(fmt.Errorf("invalid body"))
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		accessible, ok := body["accessible"].([]string)
-		if !ok {
-			h.logger.Println(fmt.Errorf("invalid body"))
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-
-		// create chat session
-		chatId, err := h.chatService.Create(userId, accessible)
+		err = h.chatService.DeleteChat(body["chatName"], body["password"])
 		if err != nil {
-			h.logger.Println(err)
-			w.WriteHeader(http.StatusInternalServerError)
+			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
-		w.Header().Add("chatId", chatId)
+		w.WriteHeader(http.StatusOK)
 	}
 }
 
-func (h *Handler) deleteChat() func(w http.ResponseWriter, r *http.Request) {
+func (h *Handler) joinChat() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
+		sessionId := r.Header.Get("session-id")
+		if sessionId == "" {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
+		// get user from session
+		u, err := h.authService.GetUser(sessionId)
+		if err != nil {
+			w.WriteHeader(http.StatusUnauthorized)
+			return
+		}
 
-	}
-}
+		// get chat info
+		chatName := r.Header.Get("chat-name")
+		password := r.Header.Get("password")
+		// check password
+		chatRoom, ok := h.chatService.GetChatToJoin(chatName, password)
+		if !ok {
+			if chatRoom != nil {
+				w.WriteHeader(http.StatusForbidden)
+			} else {
+				w.WriteHeader(http.StatusBadRequest)
+			}
+			return
+		}
 
-func (h *Handler) enterChat() func(w http.ResponseWriter, r *http.Request) {
-	return func(w http.ResponseWriter, r *http.Request) {
-
+		// create client
+		client := chat.NewClient(u.UserId, h.logger)
+		// upgrade to ws
+		upgrader := websocket.Upgrader{}
+		conn, err := upgrader.Upgrade(w, r, nil)
+		err = client.AddWebSocketConn(conn)
+		if err != nil {
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		// spins up a go routine for listening to client
+		h.chatService.JoinChat(chatRoom, client)
 	}
 }
