@@ -12,4 +12,4 @@ docker-compose build
 
 docker-compose rm -fvs; docker-compose run --rm start_dependencies
 
-docker-compose up api-gateway nginx
+docker-compose up chat-server nginx

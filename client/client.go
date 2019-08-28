@@ -2,7 +2,6 @@ package main
 
 import (
 	"bytes"
-	"encoding/json"
 	"fmt"
 	"github.com/gorilla/websocket"
 	"net/http"
@@ -113,19 +112,13 @@ func (c *Client) Create(chatName, password string) error {
 
 func (c *Client) Delete(chatName, chatPw string) error {
 	fmt.Printf("Deleting chat '%s'...\n", chatName)
-	body, err := json.Marshal(map[string]interface{}{
-		"chatName": chatName,
-		"password": chatPw,
-	})
-	if err != nil {
-		return err
-	}
-
-	req, err := http.NewRequest("POST", HTTPS+c.serverAddr+ENDPOINT_LOGOUT, bytes.NewBuffer(body))
+	req, err := http.NewRequest("DELETE", HTTPS+c.serverAddr+ENDPOINT_DELETE, nil)
 	if err != nil {
 		return err
 	}
 	req.Header.Add("session-id", c.sessionId)
+	req.Header.Add("chat-name", chatName)
+	req.Header.Add("password", chatPw)
 	client := http.Client{}
 	resp, err := client.Do(req)
 	if err != nil {

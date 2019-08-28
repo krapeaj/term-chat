@@ -3,7 +3,6 @@ package main
 import (
 	"chat-server/auth"
 	"chat-server/chat"
-	"encoding/json"
 	"fmt"
 	"github.com/gorilla/mux"
 	"github.com/gorilla/websocket"
@@ -135,29 +134,27 @@ func (h *Handler) deleteChat() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		sessionId := r.Header.Get("session-id")
 		if sessionId == "" {
+			h.logger.Println(fmt.Errorf("no session-id"))
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 		_, err := h.authService.GetUser(sessionId)
 		if err != nil {
+			h.logger.Println(err)
 			w.WriteHeader(http.StatusUnauthorized)
 			return
 		}
 
-		var b []byte
-		var body map[string]string
-		r.Body.Read(b)
-		err = json.Unmarshal(b, body)
+		chatName := r.Header.Get("chat-name")
+		password := r.Header.Get("password")
+		err = h.chatService.DeleteChat(chatName, password)
 		if err != nil {
-			w.WriteHeader(http.StatusBadRequest)
-			return
-		}
-		err = h.chatService.DeleteChat(body["chatName"], body["password"])
-		if err != nil {
+			h.logger.Println(err)
 			w.WriteHeader(http.StatusBadRequest)
 			return
 		}
 		w.WriteHeader(http.StatusOK)
+		h.logger.Println("Successfully deleted chat " + chatName)
 	}
 }
 

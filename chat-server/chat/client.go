@@ -30,10 +30,8 @@ func (c *Client) AddWebSocketConn(conn *websocket.Conn) error {
 func (c *Client) Listen(ch chan<- []byte) {
 	for {
 		t, m, err := c.ws.ReadMessage()
-		if err != nil {
-			if t == websocket.CloseMessage {
-				ch <- []byte(c.UserId + " has left.")
-			}
+		if err != nil || t == websocket.CloseMessage {
+			ch <- []byte(c.UserId + " has left.")
 			break
 		}
 		message := c.UserId + ": " + string(m)

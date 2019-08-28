@@ -58,6 +58,7 @@ func main() {
 		if err == nil {
 			break
 		}
+		fmt.Println(err)
 		fmt.Println("Failed to login! Try again.")
 	}
 
@@ -68,7 +69,7 @@ func main() {
 	fmt.Println("Enter '/help' to see available commands.")
 	for !quit {
 		// Main
-		fmt.Printf("(%s)>> ", client.userId)
+		fmt.Printf("\n(%s)>> ", client.userId)
 		scanner.Scan()
 		cmd = Command(scanner.Text())
 		switch cmd {
@@ -149,10 +150,10 @@ func printHelp() {
 	fmt.Println("'/delete' - Delete a chat room.")
 	fmt.Println("'/join' - Join a chat room.")
 	fmt.Println("'/quit' - Quit client.")
+	fmt.Println()
 
 	fmt.Println("Commands in chat:")
 	fmt.Println("'/leave' - Leave the current chat room.")
-	fmt.Println("'/quit' - Quit client.")
 }
 
 func createChat(scanner *bufio.Scanner, client *Client) error {
