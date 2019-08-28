@@ -8,6 +8,7 @@ import (
 	"fmt"
 	"github.com/google/uuid"
 	"log"
+	"time"
 )
 
 type AuthService struct {
@@ -77,6 +78,22 @@ func (as *AuthService) GetUser(sessionId string) (*model.User, error) {
 	user := as.sqlService.GetUser(userId)
 	if user == nil {
 		return nil, fmt.Errorf("could not find userId '%s' from the database", userId)
+	}
+	return user, nil
+}
+
+func (as *AuthService) CreateUser(userId, password string) (*model.User, error) {
+	if userId == "" || password == "" {
+		return nil, fmt.Errorf("empty userId or password")
+	}
+	user := &model.User{
+		UserId: userId,
+		Password: password,
+		DateCreated: time.Now().String(),
+	}
+	err := as.sqlService.SetUser(user)
+	if err != nil {
+		return nil, fmt.Errorf("")
 	}
 	return user, nil
 }

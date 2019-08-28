@@ -19,6 +19,7 @@ const (
 	HTTPS           = "https://"
 	WSS             = "wss://"
 	API_PREFIX      = "/api"
+	ENDPOINT_SIGNUP = API_PREFIX + "/signup"
 	ENDPOINT_LOGIN  = API_PREFIX + "/login"
 	ENDPOINT_LOGOUT = API_PREFIX + "/logout"
 	ENDPOINT_CREATE = API_PREFIX + "/chat"
@@ -178,4 +179,32 @@ func (c *Client) ListenAndDisplay() {
 		}
 	}
 	c.ws.Close()
+}
+
+func (c *Client) Signup(userId, password string) error {
+	if userId == "" || password == "" {
+		return fmt.Errorf("requires a non-empty user id and password")
+	}
+
+	req, err := http.NewRequest("PUT", HTTPS+c.serverAddr+ENDPOINT_SIGNUP, nil)
+	if err != nil {
+		return err
+	}
+	req.SetBasicAuth(userId, password)
+	client := http.Client{}
+	resp, err := client.Do(req)
+	if err != nil {
+		return err
+	}
+	if resp.StatusCode == http.StatusBadRequest {
+		return fmt.Errorf("userId '%s' is not available", userId)
+	}
+	if resp.StatusCode != http.StatusCreated {
+		return fmt.Errorf("unexpected failure creating account with user id '%s'", userId)
+	}
+	if resp.Header.Get("user-id") != userId {
+		return fmt.Errorf("user id mismatch")
+	}
+	fmt.Printf("Successfully created user '%s'\n", userId)
+	return nil
 }

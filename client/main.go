@@ -10,13 +10,17 @@ import (
 )
 
 type Command string
+
 const (
-	HELP Command = "/help"
+	HELP   Command = "/help"
+	LOGIN  Command = "/login"
+	LOGOUT Command = "/logout"
+	SIGNUP Command = "/signup"
 	CREATE Command = "/create"
 	DELETE Command = "/delete"
-	JOIN Command = "/join"
-	LEAVE Command = "/leave"
-	QUIT Command = "/quit"
+	JOIN   Command = "/join"
+	LEAVE  Command = "/leave"
+	QUIT   Command = "/quit"
 )
 
 func main() {
@@ -34,33 +38,6 @@ func main() {
 
 	// Log in
 	scanner := bufio.NewScanner(os.Stdin)
-	var userId, pw string
-	for {
-		for {
-			fmt.Print("User ID: ")
-			scanner.Scan()
-			userId = scanner.Text()
-			if userId != "" {
-				break
-			}
-			fmt.Println("User ID cannot be empty!")
-		}
-		for {
-			fmt.Print("User PW: ")
-			scanner.Scan()
-			pw = scanner.Text()
-			if pw != "" {
-				break
-			}
-			fmt.Println("Password cannot be empty!")
-		}
-		err := client.Login(userId, pw)
-		if err == nil {
-			break
-		}
-		fmt.Println(err)
-		fmt.Println("Failed to login! Try again.")
-	}
 
 	// Execution loop
 	quit := false
@@ -77,9 +54,24 @@ func main() {
 		case HELP:
 			printHelp()
 
+		case SIGNUP:
+			if err := signup(scanner, client); err != nil {
+				fmt.Println("ERROR: failed to sign up.")
+				fmt.Println(err)
+			}
+		case LOGIN:
+			if err := login(scanner, client); err != nil {
+				fmt.Println("ERROR: failed to log in.")
+				fmt.Println(err)
+			}
+		case LOGOUT:
+			if err := logout(client); err != nil {
+				fmt.Println("ERROR: failed to log out.")
+				fmt.Println(err)
+			}
 		case CREATE:
 			if err := createChat(scanner, client); err != nil {
-				fmt.Print("ERROR: failed to create chat. ")
+				fmt.Println("ERROR: failed to create chat.")
 				fmt.Println(err)
 			}
 
@@ -146,6 +138,9 @@ func testConnection(serverAddr string) error {
 func printHelp() {
 	fmt.Println("Available commands:")
 	fmt.Println("'/help' - Print this help message.")
+	fmt.Println("'/login' - Log in.")
+	fmt.Println("'/logout' - Log out.")
+	fmt.Println("'/signup' - Sign up.")
 	fmt.Println("'/create' - Create a chat room.")
 	fmt.Println("'/delete' - Delete a chat room.")
 	fmt.Println("'/join' - Join a chat room.")
@@ -201,4 +196,59 @@ func enterChat(scanner *bufio.Scanner, client *Client) {
 	}
 	client.Leave()
 	fmt.Printf("---------- Leave Chat: %s ----------\n", client.chatName)
+}
+
+func login(scanner *bufio.Scanner, client *Client) error {
+	if client.sessionId != "" {
+		return fmt.Errorf("user already logged in")
+	}
+	var userId, pw string
+	for {
+		fmt.Print("User ID: ")
+		scanner.Scan()
+		userId = scanner.Text()
+		if userId != "" {
+			break
+		}
+		fmt.Println("User ID cannot be empty!")
+	}
+	for {
+		fmt.Print("User PW: ")
+		scanner.Scan()
+		pw = scanner.Text()
+		if pw != "" {
+			break
+		}
+		fmt.Println("Password cannot be empty!")
+	}
+	err := client.Login(userId, pw)
+	if err != nil {
+		fmt.Println(err)
+		return err
+	}
+	return nil
+}
+
+func logout(client *Client) error {
+	if client.sessionId == "" {
+		return fmt.Errorf("user not logged in")
+	}
+	err := client.Logout()
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
+func signup(scanner *bufio.Scanner, client *Client) error {
+	if client.sessionId != "" {
+		return fmt.Errorf("user is logged in")
+	}
+	fmt.Print("Enter User ID to sign up with: ")
+	scanner.Scan()
+	userId := scanner.Text()
+	fmt.Print("Enter password: ")
+	scanner.Scan()
+	password := scanner.Text()
+	return client.Signup(userId, password)
 }

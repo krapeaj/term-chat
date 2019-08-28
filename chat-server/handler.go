@@ -28,6 +28,7 @@ func NewHandler(cs chat.ChatService, as *auth.AuthService, l *log.Logger) *Handl
 func (h *Handler) ServeHTTPS(crt, key string) {
 	r := mux.NewRouter()
 	r.HandleFunc("/test", h.test()).Methods("GET")
+	r.HandleFunc("/signup", h.signup()).Methods("PUT")
 	r.HandleFunc("/login", h.login()).Methods("POST")
 	r.HandleFunc("/logout", h.logout()).Methods("POST")
 	r.HandleFunc("/chat", h.createChat()).Methods("PUT")
@@ -48,6 +49,27 @@ func (h *Handler) ServeHTTPS(crt, key string) {
 func (h *Handler) test() func(http.ResponseWriter, *http.Request) {
 	return func(w http.ResponseWriter, r *http.Request) {
 		w.WriteHeader(http.StatusOK)
+	}
+}
+
+func (h *Handler) signup() func(w http.ResponseWriter, r *http.Request) {
+	return func(w http.ResponseWriter, r *http.Request) {
+		userId, password, ok := r.BasicAuth()
+		if !ok {
+			h.logger.Println(fmt.Errorf("no credentials provided"))
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		h.logger.Printf("Request to create an account with userId '%s'\n", userId)
+		_, err := h.authService.CreateUser(userId, password)
+		if err != nil {
+			h.logger.Println(err)
+			w.WriteHeader(http.StatusBadRequest)
+			return
+		}
+		h.logger.Printf("Successfully created user '%s'\n", userId)
+		w.Header().Add("user-id", userId)
+		w.WriteHeader(http.StatusCreated)
 	}
 }
 

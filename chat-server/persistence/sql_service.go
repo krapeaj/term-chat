@@ -2,6 +2,7 @@ package persistence
 
 import (
 	"chat-server/model"
+	"fmt"
 	"github.com/jinzhu/gorm"
 	"log"
 )
@@ -19,18 +20,22 @@ func NewSQLService(db *gorm.DB, l *log.Logger) *SQLService {
 }
 
 func (ss *SQLService) GetUser(userId string) *model.User {
-	user := model.User{}
-	db := ss.db.First(&user, "user_id=?", userId)
+	user := &model.User{}
+	db := ss.db.First(user, "user_id=?", userId)
 	if db.Error != nil {
 		return nil
 	}
-	return &user
+	return user
 }
 
 func (ss *SQLService) SetUser(user *model.User) error {
-	db := ss.db.Create(user)
+	db := ss.db.First(user, "user_id=?", user.UserId)
 	if db.Error != nil {
-		return db.Error
+		db = ss.db.Create(user)
+		if db.Error != nil {
+			return db.Error
+		}
+		return nil
 	}
-	return nil
+	return fmt.Errorf("user '%s' already exists", user.UserId)
 }
