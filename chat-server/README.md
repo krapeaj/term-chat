@@ -2,20 +2,15 @@
 
 **Description**
 
-A light-weight go REST API server that handles client requests and allows communication between different services.
+A light-weight go REST API server and application server that handles client requests and establishes websocket connection.
 
 **REST API**
 
-All requests requires header `userId`.
-- Login - `POST /api/login` Requires header encrypted `password`.
-- Logout - `POST /api/logout`
-- Create Chat - `PUT /api/chat`
-- Delete Chat - `DELETE /api/chat/{chatId}`
-- Enter Chat - `GET /api/chat/{chatId}` 
-- Leave Chat - `DELETE /api/chat/{chatId}`
-- Send Message - `POST /api/chat/{chatId}`
-
-**Etc**
-
-- Timeout: 30 seconds
+- Sign up - `PUT /api/signup`. Requires `Authorization` header with Basic-encrypted credentials. 
+- Login - `POST /api/login`. Requires `Authorization` header with Basic-encrypted credentials.
+- Logout - `POST /api/logout`. Requires header `session-id`.
+- Create Chat - `PUT /api/chat`. Requires headers `session-id`, `chat-name`, and `password` (chat password).
+- Delete Chat - `DELETE /api/chat`. Requires headers `session-id`, `chat-name`, and `password` (chat password).
+- Join Chat - `GET /websocket` (wss). Requires headers `session-id`, `chat-name`, and `password` (chat password). 
+    - client is disconnected from chat when websocket connection is closed or lost.
 
