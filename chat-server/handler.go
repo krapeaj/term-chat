@@ -36,7 +36,7 @@ func (h *Handler) ServeHTTPS(crt, key string) {
 	r.HandleFunc("/websocket", h.joinChat()).Methods("GET")
 
 	server := &http.Server{
-		Addr:         "0.0.0.0:433",
+		Addr:         "0.0.0.0:443",
 		Handler:      r,
 		WriteTimeout: 15 * time.Second,
 		ReadTimeout:  15 * time.Second,
